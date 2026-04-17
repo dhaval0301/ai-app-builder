@@ -16,10 +16,13 @@ class BaseProvider(ABC):
         prompt: str,
         mode: str = "generate",
         current_code: str = "",
+        history: list | None = None,
     ) -> AsyncIterator[str]:
         """
         Async generator that yields raw code tokens one at a time.
-        `mode` is either "generate" (new app) or "modify" (edit existing code).
-        `current_code` is populated when mode == "modify".
+
+        mode         : "generate" | "modify" | "enhance"
+        current_code : latest code state (modify mode)
+        history      : list of langchain BaseMessage objects for conversation memory
         """
         ...

@@ -7,16 +7,21 @@
  *   onDone({ description, components, version_id, provider })
  *   onError(message)
  */
+
+// In production (Vercel) the vercel.json rewrite proxies /api → Railway backend.
+// In development the Vite proxy handles it. Either way the base is just '/api'.
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '') + '/api'
+
 export async function generateAppStream(
   prompt,
-  { onProvider, onToken, onDone, onError },
+  { onProvider, onToken, onDone, onError, sessionId = null },
 ) {
   let response
   try {
-    response = await fetch('/api/generate/stream', {
+    response = await fetch(`${API_BASE}/generate/stream`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ prompt }),
+      body:    JSON.stringify({ prompt, session_id: sessionId }),
     })
   } catch (err) {
     onError('Cannot reach the API server. Is the backend running?')
@@ -42,14 +47,14 @@ export async function generateAppStream(
 export async function modifyAppStream(
   instruction,
   currentCode,
-  { onProvider, onToken, onDone, onError },
+  { onProvider, onToken, onDone, onError, sessionId = null },
 ) {
   let response
   try {
-    response = await fetch('/api/modify/stream', {
+    response = await fetch(`${API_BASE}/modify/stream`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ instruction, current_code: currentCode }),
+      body:    JSON.stringify({ instruction, current_code: currentCode, session_id: sessionId }),
     })
   } catch (err) {
     onError('Cannot reach the API server. Is the backend running?')
@@ -79,7 +84,7 @@ export async function enhancePromptStream(
 ) {
   let response
   try {
-    response = await fetch('/api/enhance/stream', {
+    response = await fetch(`${API_BASE}/enhance/stream`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ prompt }),
@@ -116,10 +121,38 @@ async function _readSSE(body, { onProvider, onToken, onDone, onError }) {
   const decoder = new TextDecoder()
   let buffer    = ''
 
+  function processChunk(chunk) {
+    const parts = chunk.split('\n\n')
+    for (const part of parts) {
+      const line = part.trim()
+      if (!line.startsWith('data: ')) continue
+      try {
+        const event = JSON.parse(line.slice(6))
+        if (event.type === 'provider') {
+          onProvider?.(event.name)
+        } else if (event.type === 'token') {
+          onToken?.(event.content)
+        } else if (event.type === 'done') {
+          onDone?.(event)
+        } else if (event.type === 'error') {
+          onError?.(event.message)
+        }
+      } catch {
+        // skip malformed SSE lines
+      }
+    }
+  }
+
   try {
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+      if (done) {
+        // Flush any remaining buffered data when stream closes
+        if (buffer.trim()) {
+          processChunk(buffer)
+        }
+        break
+      }
 
       buffer += decoder.decode(value, { stream: true })
       const parts = buffer.split('\n\n')
@@ -154,7 +187,7 @@ async function _readSSE(body, { onProvider, onToken, onDone, onError }) {
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   timeout: 90_000,
   headers: { 'Content-Type': 'application/json' },
 })

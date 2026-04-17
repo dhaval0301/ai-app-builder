@@ -12,13 +12,30 @@ const STYLE_PRESETS = [
 ]
 
 const EXAMPLES = [
-  'A fitness tracker with workout logs & charts',
-  'A crypto portfolio dashboard with live prices',
-  'A recipe manager with search and categories',
-  'A kanban project board with drag-and-drop',
-  'An e-commerce product page with cart',
-  'A music player with playlists and waveform',
-  'A social media analytics dashboard',
+  // Dashboards & Analytics
+  'A fitness tracker with workout logs, progress charts, and streak calendar',
+  'A crypto portfolio dashboard with live prices, pie chart, and P&L tracker',
+  'A social media analytics dashboard with follower growth and engagement graphs',
+  'A personal finance dashboard with budget rings, spending categories, and monthly trends',
+  'A SaaS metrics dashboard with MRR, churn, DAU charts and a cohort table',
+  // Productivity
+  'A kanban project board with drag-and-drop cards, labels, and due dates',
+  'A Pomodoro timer app with task list, session history, and focus streaks',
+  'A habit tracker with a heatmap calendar, streak counters, and weekly report',
+  'A note-taking app with folders, markdown preview, and tag search',
+  'An AI writing assistant with prompt history, tone selector, and word count',
+  // E-commerce & Media
+  'An e-commerce product page with image gallery, size picker, and cart drawer',
+  'A music player with playlist sidebar, waveform visualizer, and lyrics panel',
+  'A recipe manager with ingredient search, dietary filters, and cook-mode timer',
+  'A movie watchlist app with rating stars, genre filters, and trailer modal',
+  'A travel planner with destination cards, itinerary timeline, and budget tracker',
+  // Tools & Utilities
+  'A real-time weather app with 7-day forecast, radar map, and hourly chart',
+  'A code snippet manager with syntax highlighting, tag search, and copy button',
+  'A password strength checker with entropy score and breach lookup',
+  'A unit converter with live FX rates, length, weight, and temperature tabs',
+  'An invoice generator with line items, tax calculator, and PDF export button',
 ]
 
 const PROVIDER_COLORS = {

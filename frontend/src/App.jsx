@@ -54,39 +54,44 @@ export default function App() {
     setProviderUsed(null)
     codeAccRef.current = ''
 
-    await generateAppStream(trimmedPrompt, {
-      onProvider: (name) => {
-        setProviderUsed(name)
-        toast(`Using ${name}…`, { icon: '🤖', duration: 2000 })
-      },
-      onToken: (token) => {
-        codeAccRef.current += token
-        setCode(codeAccRef.current)
-      },
-      onDone: (meta) => {
-        const finalCode = codeAccRef.current
-        const newVersion = {
-          id:          meta.version_id,
-          prompt:      trimmedPrompt,
-          description: meta.description,
-          code:        finalCode,
-          components:  meta.components,
-          provider:    meta.provider,
-          timestamp:   new Date().toISOString(),
-        }
-        setGeneratedData({ ...meta, code: finalCode })
-        setActiveVersionId(meta.version_id)
-        setVersions(prev => [newVersion, ...prev].slice(0, 30))
-        setActiveTab('Split')
-        setLeftTab('Components')
-        setIsLoading(false)
-        toast.success(`Generated with ${meta.provider}!`, { icon: '⚡' })
-      },
-      onError: (msg) => {
-        toast.error(msg || 'Generation failed — check backend.')
-        setIsLoading(false)
-      },
-    })
+    try {
+      await generateAppStream(trimmedPrompt, {
+        onProvider: (name) => {
+          setProviderUsed(name)
+          toast(`Using ${name}…`, { icon: '🤖', duration: 2000 })
+        },
+        onToken: (token) => {
+          codeAccRef.current += token
+          setCode(codeAccRef.current)
+        },
+        onDone: (meta) => {
+          const finalCode = codeAccRef.current
+          const newVersion = {
+            id:          meta.version_id,
+            prompt:      trimmedPrompt,
+            description: meta.description,
+            code:        finalCode,
+            components:  meta.components,
+            provider:    meta.provider,
+            timestamp:   new Date().toISOString(),
+          }
+          setGeneratedData({ ...meta, code: finalCode })
+          setActiveVersionId(meta.version_id)
+          setVersions(prev => [newVersion, ...prev].slice(0, 30))
+          setActiveTab('Split')
+          setLeftTab('Components')
+          toast.success(`Generated with ${meta.provider}!`, { icon: '⚡' })
+        },
+        onError: (msg) => {
+          toast.error(msg || 'Generation failed — check backend.')
+        },
+        sessionId: null,
+      })
+    } catch (err) {
+      toast.error('Unexpected error — please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }, [prompt])
 
   const handleModify = useCallback(async (instruction) => {
@@ -94,35 +99,40 @@ export default function App() {
     setIsModifying(true)
     codeAccRef.current = ''
 
-    await modifyAppStream(instruction, code, {
-      onProvider: (name) => setProviderUsed(name),
-      onToken: (token) => {
-        codeAccRef.current += token
-        setCode(codeAccRef.current)
-      },
-      onDone: (meta) => {
-        const finalCode = codeAccRef.current
-        const newVersion = {
-          id:          meta.version_id,
-          prompt:      instruction,
-          description: meta.description,
-          code:        finalCode,
-          components:  meta.components,
-          provider:    meta.provider,
-          timestamp:   new Date().toISOString(),
-        }
-        setGeneratedData(prev => ({ ...prev, ...meta, code: finalCode }))
-        setActiveVersionId(meta.version_id)
-        setVersions(prev => [newVersion, ...prev].slice(0, 30))
-        setIsModifying(false)
-        toast.success('Modification applied!', { icon: '✏️' })
-      },
-      onError: (msg) => {
-        toast.error(msg || 'Modification failed.')
-        setIsModifying(false)
-      },
-    })
-  }, [code])
+    try {
+      await modifyAppStream(instruction, code, {
+        onProvider: (name) => setProviderUsed(name),
+        onToken: (token) => {
+          codeAccRef.current += token
+          setCode(codeAccRef.current)
+        },
+        onDone: (meta) => {
+          const finalCode = codeAccRef.current
+          const newVersion = {
+            id:          meta.version_id,
+            prompt:      instruction,
+            description: meta.description,
+            code:        finalCode,
+            components:  meta.components,
+            provider:    meta.provider,
+            timestamp:   new Date().toISOString(),
+          }
+          setGeneratedData(prev => ({ ...prev, ...meta, code: finalCode }))
+          setActiveVersionId(meta.version_id)
+          setVersions(prev => [newVersion, ...prev].slice(0, 30))
+          toast.success('Modification applied!', { icon: '✏️' })
+        },
+        onError: (msg) => {
+          toast.error(msg || 'Modification failed.')
+        },
+        sessionId: activeVersionId,
+      })
+    } catch (err) {
+      toast.error('Unexpected error — please try again.')
+    } finally {
+      setIsModifying(false)
+    }
+  }, [code, activeVersionId])
 
   const handleVersionSelect = useCallback((version) => {
     setCode(version.code)

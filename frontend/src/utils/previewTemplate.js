@@ -7,11 +7,27 @@
  * • A visible error overlay is shown if the code throws at runtime.
  * • The iframe is sand-boxed (allow-scripts, allow-same-origin only).
  */
+/**
+ * Strip markdown code fences that LLMs sometimes wrap around their output.
+ * e.g.  ```jsx\nfunction App() {...}\n```  → function App() {...}
+ */
+function stripMarkdownFences(raw) {
+  const trimmed = raw.trim()
+  // Full fence block: ```[lang]\n...\n```
+  const fenceMatch = trimmed.match(/^```[\w]*\s*\n([\s\S]*?)```\s*$/)
+  if (fenceMatch) return fenceMatch[1].trim()
+  // Opening fence only (LLM didn't close it)
+  const openOnly = trimmed.replace(/^```[\w]*\s*\n/, '').replace(/\n```[\s]*$/, '')
+  return openOnly.trim()
+}
+
 export function generatePreviewHTML(code) {
   if (!code || !code.trim()) return getEmptyStateHTML()
 
+  const cleanedCode = stripMarkdownFences(code)
+
   // Escape </script> occurrences to prevent breaking the template
-  const safeCode = code.replace(/<\/script>/gi, '<\\/script>')
+  const safeCode = cleanedCode.replace(/<\/script>/gi, '<\\/script>')
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -78,9 +94,19 @@ export function generatePreviewHTML(code) {
       var el  = document.getElementById('__error-overlay');
       var pre = document.getElementById('__error-msg');
       if (el && pre) { pre.textContent = msg; el.classList.add('show'); }
+      // Also surface the error in the parent app's console panel
+      try {
+        window.parent.postMessage({ type: '__console', level: 'error', args: [msg], ts: Date.now() }, '*');
+      } catch(e) {}
     };
-    window.onerror = function(msg, _src, _line, _col, err) {
-      window.__showError((err && err.stack) ? err.stack : msg);
+    window.onerror = function(msg, src, line, col, err) {
+      var detail = (err && err.stack) ? err.stack : (msg + (src ? ' — ' + src + ':' + line : ''));
+      // "Script error." is a cross-origin-sanitised message (e.g. Babel parse/eval errors).
+      // We can't get the real stack, so show a helpful fallback instead of swallowing it.
+      if (msg === 'Script error.' || msg === 'Script error') {
+        detail = 'Script error (cross-origin sanitised).\n\nLikely causes:\n  • Syntax error in the generated code\n  • Undefined variable / component used before it was defined\n\nOpen the Console panel (terminal icon) for more detail.';
+      }
+      window.__showError(detail);
       return true;
     };
     window.addEventListener('unhandledrejection', function(e) {
@@ -128,7 +154,11 @@ export function generatePreviewHTML(code) {
 
       const __rootEl = document.getElementById('root');
       if (__rootEl) {
-        ReactDOM.createRoot(__rootEl).render(
+        ReactDOM.createRoot(__rootEl, {
+          onRecoverableError: function(err) {
+            window.__showError(err && err.stack ? err.stack : String(err));
+          }
+        }).render(
           React.createElement(React.StrictMode, null, React.createElement(App))
         );
       }
@@ -154,12 +184,12 @@ function getEmptyStateHTML() {
     align-items: center;
     justify-content: center;
     font-family: system-ui, sans-serif;
-    color: #475569;
+    color: #64748b;
   }
   .wrap { text-align: center; }
-  .icon { font-size: 44px; margin-bottom: 14px; opacity: .45; }
+  .icon { font-size: 44px; margin-bottom: 14px; opacity: .7; }
   p { font-size: 13px; line-height: 1.6; }
-  span { color: #6366f1; }
+  span { color: #818cf8; font-weight: 600; }
 </style>
 </head>
 <body>

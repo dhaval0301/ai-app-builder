@@ -3,9 +3,11 @@ import logging
 import os
 import re
 import uuid
+from collections import OrderedDict
 from typing import AsyncIterator
 
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage, AIMessage
 
 from services.providers.openai_provider import OpenAIProvider
 from services.providers.anthropic_provider import AnthropicProvider
@@ -43,6 +45,42 @@ def _build_chain():
 
 
 # ---------------------------------------------------------------------------
+# Conversation memory  (per session, max 20 sessions, last 6 turns kept)
+# ---------------------------------------------------------------------------
+_MAX_SESSIONS = 20
+_MAX_TURNS    = 6   # pairs of HumanMessage + AIMessage
+
+# OrderedDict so we can evict the oldest session when full
+_sessions: OrderedDict[str, list] = OrderedDict()
+
+
+def _get_history(session_id: str | None) -> list:
+    if not session_id or session_id not in _sessions:
+        return []
+    return list(_sessions[session_id])
+
+
+def _save_turn(session_id: str, human_msg: str, ai_msg: str) -> None:
+    if not session_id:
+        return
+    if session_id not in _sessions:
+        if len(_sessions) >= _MAX_SESSIONS:
+            _sessions.popitem(last=False)   # evict oldest
+        _sessions[session_id] = []
+    hist = _sessions[session_id]
+    hist.append(HumanMessage(content=human_msg))
+    hist.append(AIMessage(content=ai_msg))
+    # Keep only the last _MAX_TURNS pairs
+    if len(hist) > _MAX_TURNS * 2:
+        _sessions[session_id] = hist[-(  _MAX_TURNS * 2):]
+    _sessions.move_to_end(session_id)
+
+
+def clear_session(session_id: str) -> None:
+    _sessions.pop(session_id, None)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 def _sse(data: dict) -> str:
@@ -69,6 +107,7 @@ async def generate_stream(
     prompt: str,
     mode: str = "generate",
     current_code: str = "",
+    session_id: str | None = None,
 ) -> AsyncIterator[str]:
     """
     Async generator yielding SSE-formatted strings.
@@ -79,9 +118,13 @@ async def generate_stream(
       {"type": "done",     "description": "...", "components": [...],
                            "version_id": "...", "provider": "..."}
       {"type": "error",    "message": "..."}
+
+    session_id: when provided, conversation history is loaded (modify mode)
+                and the new turn is persisted after a successful response.
     """
-    chain = _build_chain()
+    chain      = _build_chain()
     last_error = "No providers available"
+    history    = _get_history(session_id) if mode == "modify" else []
 
     for provider in chain:
         if not provider.is_configured():
@@ -92,12 +135,19 @@ async def generate_stream(
             yield _sse({"type": "provider", "name": provider.name})
 
             full_code = ""
-            async for token in provider.generate_stream(prompt, mode, current_code):
+            async for token in provider.generate_stream(
+                prompt, mode, current_code, history
+            ):
                 full_code += token
                 yield _sse({"type": "token", "content": token})
 
             if not full_code.strip():
                 raise ValueError("Provider returned empty response")
+
+            # Persist conversation turn for modify / generate sessions
+            if session_id and mode in ("generate", "modify"):
+                human_content = prompt if mode == "generate" else f"[modify] {prompt}"
+                _save_turn(session_id, human_content, full_code)
 
             components = extract_components(full_code)
             version_id = str(uuid.uuid4())

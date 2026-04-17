@@ -72,6 +72,68 @@ ai-app-builder/
 
 ---
 
+## 🚀 Deploy to Production (Vercel + Railway)
+
+### Backend → Railway
+
+1. Go to [railway.app](https://railway.app) → **New Project** → Deploy from GitHub
+2. Set the **Root Directory** to `backend`
+3. Add environment variables in Railway dashboard (copy from `backend/.env.example`):
+   - `OPENAI_API_KEY` (required — or any other provider key)
+   - `ANTHROPIC_API_KEY` *(optional)*
+   - `GEMINI_API_KEY` *(optional)*
+   - `AI_PROVIDER=auto`
+   - `ALLOWED_ORIGINS` → add after Vercel deploys (e.g. `https://my-app.vercel.app`)
+4. Railway auto-detects `railway.toml` — no extra config needed
+5. Copy your Railway public URL (e.g. `https://my-app.up.railway.app`)
+
+### Frontend → Vercel
+
+1. Go to [vercel.com](https://vercel.com) → **New Project** → Import from GitHub
+2. Set **Root Directory** to `frontend`
+3. Open `frontend/vercel.json` and replace `https://your-railway-app.up.railway.app` with your actual Railway URL
+4. Deploy — Vercel auto-detects Vite, no build config needed
+
+### Final step — update CORS
+
+Back in Railway env vars, add your Vercel URL:
+```
+ALLOWED_ORIGINS=https://my-app.vercel.app
+```
+
+---
+
+## 🚀 Deploy to Production (Vercel + Railway)
+
+### Backend → Railway
+
+1. Go to [railway.app](https://railway.app) → **New Project** → Deploy from GitHub
+2. Set the **Root Directory** to `backend`
+3. Add environment variables in Railway dashboard (copy from `backend/.env.example`):
+   - `OPENAI_API_KEY` (required — or any other provider key)
+   - `ANTHROPIC_API_KEY` *(optional)*
+   - `GEMINI_API_KEY` *(optional)*
+   - `AI_PROVIDER=auto`
+   - `ALLOWED_ORIGINS` → add after Vercel deploys (e.g. `https://my-app.vercel.app`)
+4. Railway auto-detects `railway.toml` — no extra config needed
+5. Copy your Railway public URL (e.g. `https://my-app.up.railway.app`)
+
+### Frontend → Vercel
+
+1. Go to [vercel.com](https://vercel.com) → **New Project** → Import from GitHub
+2. Set **Root Directory** to `frontend`
+3. Open `frontend/vercel.json` and replace `https://your-railway-app.up.railway.app` with your actual Railway URL
+4. Deploy — Vercel auto-detects Vite, no build config needed
+
+### Final step — update CORS
+
+Back in Railway env vars, add your Vercel URL:
+```
+ALLOWED_ORIGINS=https://my-app.vercel.app
+```
+
+---
+
 ## 🚀 Running Locally
 
 ### Prerequisites

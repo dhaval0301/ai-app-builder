@@ -10,6 +10,7 @@ router = APIRouter()
 
 class GenerateRequest(BaseModel):
     prompt: str
+    session_id: str | None = None
 
     @field_validator("prompt")
     @classmethod
@@ -25,6 +26,7 @@ class GenerateRequest(BaseModel):
 class ModifyRequest(BaseModel):
     instruction: str
     current_code: str
+    session_id: str | None = None
 
     @field_validator("instruction")
     @classmethod
@@ -90,7 +92,11 @@ async def stream_enhance(request: EnhanceRequest):
 async def stream_generate(request: GenerateRequest):
     """Stream React code generation via Server-Sent Events."""
     return StreamingResponse(
-        generate_stream(request.prompt, mode="generate"),
+        generate_stream(
+            request.prompt,
+            mode="generate",
+            session_id=request.session_id,
+        ),
         media_type="text/event-stream",
         headers=_SSE_HEADERS,
     )
@@ -104,6 +110,7 @@ async def stream_modify(request: ModifyRequest):
             request.instruction,
             mode="modify",
             current_code=request.current_code,
+            session_id=request.session_id,
         ),
         media_type="text/event-stream",
         headers=_SSE_HEADERS,
