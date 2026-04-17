@@ -695,6 +695,7 @@ class TemplateProvider(BaseProvider):
         prompt: str,
         mode: str = "generate",
         current_code: str = "",
+        history: list | None = None,
     ) -> AsyncIterator[str]:
         if mode == "modify" and current_code:
             # For modify mode with no AI, just re-yield the current code as-is
