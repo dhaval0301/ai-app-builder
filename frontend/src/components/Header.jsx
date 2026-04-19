@@ -19,7 +19,7 @@ export default function Header({ onExport, hasCode, isLoading }) {
             AI App Builder
           </h1>
           <p className="text-[10px] text-gray-600 leading-none mt-0.5">
-            Powered by GPT-4o
+            Generate web UI from a text prompt
           </p>
         </div>
       </div>
