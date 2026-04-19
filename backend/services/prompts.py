@@ -180,6 +180,16 @@ Apps with multiple views MUST have working navigation:
 5. Sidebar: `hidden md:flex` — never shown on mobile
 6. Mobile: fixed bottom bar with SVG icon + label per page
 
+PAGE CONTENT — NON-NEGOTIABLE:
+Every single page MUST contain rich, real UI. A page is NOT allowed to have only a heading + subtitle text.
+• Dashboard/Home page:   stat cards, charts, activity feed, data tables
+• Settings page:         grouped sections with labeled toggles, radio groups, color/theme pickers, input fields, save button, danger zone
+• Profile/Account page:  avatar, editable fields, stats, badges, activity list
+• Portfolio/Holdings:    allocation donut chart, holdings table with prices and P&L, add/remove controls
+• History/Logs:          filterable/sortable data table with status badges, timestamps, search bar
+• Analytics:             multi-metric charts, date range picker, breakdown table
+General rule: each page must have AT LEAST 3 distinct content sections with real interactive or data-display elements.
+
 Single-screen apps only (timer, calculator, player, single-tool): skip nav.
 
 ════════════════════════════════════════
@@ -352,6 +362,7 @@ def build_generate_message(prompt: str) -> str:
         "- Build the CORRECT type of UI for what was asked — not a generic dashboard\n"
         "- Choose the right layout: player/timer/tool = centered, multi-section app = sidebar+pages\n"
         "- For multi-section apps: working useState navigation, every nav item calls setActivePage, minimum 3 fully-built pages\n"
+        "- EVERY page must have rich content — no page may contain only a heading and subtitle. Settings pages need toggles/inputs/sections. Portfolio pages need charts+tables. Home pages need stat cards+charts+feeds.\n"
         "- Apply the FULL design system: #070711 background, gradient-border KPI cards, inline SVG icons, glassmorphism cards\n"
         "- Fixed background glow orbs, gradient hero text, sparklines, delta badges — all mandatory\n"
         "- Sidebar hidden on mobile (`hidden md:flex`), bottom nav bar on mobile (`flex md:hidden`)\n"
