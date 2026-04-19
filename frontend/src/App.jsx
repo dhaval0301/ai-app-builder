@@ -138,7 +138,6 @@ export default function App() {
     setCode(version.code)
     setActiveVersionId(version.id)
     setPrompt(version.prompt)
-    setLeftTab('Prompt')
     toast.success('Version restored')
   }, [])
 
