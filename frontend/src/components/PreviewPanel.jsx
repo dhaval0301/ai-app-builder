@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, Maximize2, AlertTriangle, Terminal, Trash2 } from 'lucide-react'
 import { generatePreviewHTML } from '../utils/previewTemplate.js'
 export default function PreviewPanel({ code, isLoading }) {
-  const iframeRef         = useRef(null)
-  const consoleEndRef     = useRef(null)
-  const [key, setKey]     = useState(0)
-  const [hasError, setHasError] = useState(false)
+  const iframeRef          = useRef(null)
+  const consoleEndRef      = useRef(null)
+  const [key, setKey]      = useState(0)
+  const [hasError, setHasError]       = useState(false)
   const [showConsole, setShowConsole] = useState(false)
   const [consoleLogs, setConsoleLogs] = useState([])
+  const debounceRef        = useRef(null)
 
   // Listen for console messages from the preview iframe
   useEffect(() => {
@@ -30,26 +31,39 @@ export default function PreviewPanel({ code, isLoading }) {
     if (showConsole) consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [consoleLogs, showConsole])
 
-  // Clear logs when new code is loaded
+  // Clear logs when code changes
   useEffect(() => {
     setConsoleLogs([])
   }, [code])
 
-  // Re-render whenever code changes (only update if content actually changed to avoid double-reload)
-  useEffect(() => {
-    setHasError(false)
+  // Core preview update function — only touches the DOM, never causes React re-render
+  const loadPreview = useCallback((currentCode) => {
     if (!iframeRef.current) return
-    const html = generatePreviewHTML(code)
-    if (iframeRef.current.srcdoc !== html) {
-      iframeRef.current.srcdoc = html
+    setHasError(false)
+    iframeRef.current.srcdoc = generatePreviewHTML(currentCode)
+  }, [])
+
+  // During streaming: debounce so the iframe isn't reloaded every token.
+  // When streaming ends (isLoading flips false): load immediately.
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    if (isLoading) {
+      // While streaming, delay the update — only refresh after 800ms of silence
+      debounceRef.current = setTimeout(() => loadPreview(code), 800)
+    } else {
+      // Streaming just finished OR user edited code — load right now
+      loadPreview(code)
     }
-  }, [code])
+    return () => clearTimeout(debounceRef.current)
+  }, [code, isLoading, loadPreview])
   const errorCount = consoleLogs.filter(l => l.level === 'error').length
 
   const handleRefresh = useCallback(() => {
     setKey(k => k + 1)
     setHasError(false)
-  }, [])
+    // After key-triggered remount, set srcdoc on the new iframe element
+    setTimeout(() => loadPreview(code), 50)
+  }, [code, loadPreview])
 
   const handleOpenInTab = useCallback(() => {
     const html = generatePreviewHTML(code)
@@ -145,9 +159,8 @@ export default function PreviewPanel({ code, isLoading }) {
             key={key}
             ref={iframeRef}
             title="App Preview"
-            sandbox="allow-scripts"
+            sandbox="allow-scripts allow-same-origin"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-            srcDoc={generatePreviewHTML(code)}
             onError={() => setHasError(true)}
           />
         </div>
