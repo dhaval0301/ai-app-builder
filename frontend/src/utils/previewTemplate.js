@@ -37,8 +37,8 @@ export function generatePreviewHTML(code) {
   <title>Preview</title>
 
   <!-- React 18 -->
-  <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"><\/script>
-  <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"><\/script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.development.js"><\/script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.development.js"><\/script>
 
   <!-- Babel standalone (JSX transpiler) -->
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.10/babel.min.js"><\/script>
@@ -149,6 +149,20 @@ export function generatePreviewHTML(code) {
       forwardRef, memo, useId, useTransition, useDeferredValue
     } = React;
 
+    // Error boundary — catches per-component render errors and shows them inline
+    class __ErrorBoundary extends React.Component {
+      constructor(props) { super(props); this.state = { error: null }; }
+      static getDerivedStateFromError(err) { return { error: err }; }
+      componentDidCatch(err, info) {
+        var msg = (err && err.stack ? err.stack : String(err)) + (info && info.componentStack ? '\n\nComponent stack:' + info.componentStack : '');
+        window.__showError(msg);
+      }
+      render() {
+        if (this.state.error) return null;
+        return this.props.children;
+      }
+    }
+
     try {
       ${safeCode}
 
@@ -159,7 +173,7 @@ export function generatePreviewHTML(code) {
             window.__showError(err && err.stack ? err.stack : String(err));
           }
         }).render(
-          React.createElement(App)
+          React.createElement(__ErrorBoundary, null, React.createElement(App))
         );
       }
     } catch (__err) {

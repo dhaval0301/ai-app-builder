@@ -180,6 +180,12 @@ Apps with multiple views MUST have working navigation:
 5. Sidebar: `hidden md:flex` — never shown on mobile
 6. Mobile: fixed bottom bar with SVG icon + label per page
 
+LAYOUT — CRITICAL (blank content is caused by wrong root class):
+  Root wrapper MUST be: `h-screen bg-[#070711] flex overflow-hidden`  ← NOT min-h-screen
+  Sidebar:              `hidden md:flex flex-col w-60 h-full flex-shrink-0 border-r border-white/[0.05]`
+  Main content area:    `flex-1 overflow-y-auto`  ← scrollable, fills remaining height
+  Each page component:  `p-4 md:p-6 lg:p-8`  ← padding only, no height constraint needed
+
 PAGE CONTENT — NON-NEGOTIABLE:
 Every single page MUST contain rich, real UI. A page is NOT allowed to have only a heading + subtitle text.
 • Dashboard/Home page:   stat cards, charts, activity feed, data tables
@@ -210,7 +216,7 @@ DESIGN SYSTEM — MANDATORY EVERYWHERE
 ════════════════════════════════════════
 
 PALETTE:
-  Page:      #070711  → always `min-h-screen bg-[#070711]`
+  Page:      #070711  → `h-screen bg-[#070711] flex overflow-hidden` for multi-page apps, `min-h-screen bg-[#070711]` for single-screen apps
   Surface 1: #0f0f1a  (cards)
   Surface 2: #161625  (hover/elevated)
   Surface 3: #1e1e32  (active/selected)
