@@ -36,7 +36,10 @@ export function generatePreviewHTML(code) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Preview</title>
 
-  <!-- React 18 -->
+  <!-- Explicitly allow eval (needed for Babel) in case of inherited CSP -->
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+
+  <!-- React 18 dev build (surfaces errors properly) -->
   <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.development.js"><\/script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.development.js"><\/script>
 
@@ -53,8 +56,11 @@ export function generatePreviewHTML(code) {
 
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; min-height: 100vh; }
-    body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    /* Use height:100% not min-height:100vh — guarantees h-screen/h-full work correctly in srcdoc iframes */
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #root { height: 100%; }
+    /* Dark background + text fallback in case Tailwind CDN hasn't applied classes yet */
+    body { background: #070711; color: #f0f0ff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 
     /* Scrollbars */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -88,23 +94,31 @@ export function generatePreviewHTML(code) {
   </div>
   <div id="root"></div>
 
-  <!-- Runtime error catcher -->
+  <!-- Runtime error catcher + CDN load checks -->
   <script>
+    // Detect if critical CDN scripts failed to load
+    window.addEventListener('load', function() {
+      if (typeof React === 'undefined') {
+        window.__showError('Failed to load React from CDN (cdn.jsdelivr.net).\nCheck your internet connection and try refreshing.');
+        return;
+      }
+      if (typeof Babel === 'undefined') {
+        window.__showError('Failed to load Babel from CDN.\nCheck your internet connection and try refreshing.');
+      }
+    });
+
     window.__showError = function(msg) {
       var el  = document.getElementById('__error-overlay');
       var pre = document.getElementById('__error-msg');
       if (el && pre) { pre.textContent = msg; el.classList.add('show'); }
-      // Also surface the error in the parent app's console panel
       try {
         window.parent.postMessage({ type: '__console', level: 'error', args: [msg], ts: Date.now() }, '*');
       } catch(e) {}
     };
     window.onerror = function(msg, src, line, col, err) {
       var detail = (err && err.stack) ? err.stack : (msg + (src ? ' — ' + src + ':' + line : ''));
-      // "Script error." is a cross-origin-sanitised message (e.g. Babel parse/eval errors).
-      // We can't get the real stack, so show a helpful fallback instead of swallowing it.
       if (msg === 'Script error.' || msg === 'Script error') {
-        detail = 'Script error (cross-origin sanitised).\n\nLikely causes:\n  • Syntax error in the generated code\n  • Undefined variable / component used before it was defined\n\nOpen the Console panel (terminal icon) for more detail.';
+        detail = 'Script error (cross-origin sanitised).\n\nLikely cause: Syntax error or undefined variable in the generated code.\n\nOpen the Console panel (terminal icon) for more detail.';
       }
       window.__showError(detail);
       return true;
@@ -141,8 +155,8 @@ export function generatePreviewHTML(code) {
     })();
   <\/script>
 
-  <!-- User-generated component code -->
-  <script type="text/babel" data-presets="react,env">
+  <!-- User-generated component code — only "react" preset, no "env" (avoids core-js require() issues) -->
+  <script type="text/babel" data-presets="react">
     const {
       useState, useEffect, useCallback, useMemo, useRef,
       useReducer, useContext, createContext, Fragment,

@@ -145,7 +145,7 @@ export default function PreviewPanel({ code, isLoading }) {
             key={key}
             ref={iframeRef}
             title="App Preview"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
             srcDoc={generatePreviewHTML(code)}
             onError={() => setHasError(true)}
