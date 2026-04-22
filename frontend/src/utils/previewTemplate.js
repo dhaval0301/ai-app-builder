@@ -37,11 +37,11 @@ export function generatePreviewHTML(code) {
   <title>Preview</title>
 
   <!-- React 18 -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"><\/script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"><\/script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"><\/script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"><\/script>
 
   <!-- Babel standalone (JSX transpiler) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.10/babel.min.js"><\/script>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"><\/script>
@@ -159,7 +159,7 @@ export function generatePreviewHTML(code) {
             window.__showError(err && err.stack ? err.stack : String(err));
           }
         }).render(
-          React.createElement(React.StrictMode, null, React.createElement(App))
+          React.createElement(App)
         );
       }
     } catch (__err) {
