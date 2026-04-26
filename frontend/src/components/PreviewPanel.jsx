@@ -2,14 +2,24 @@ import { useRef, useEffect, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, Maximize2, AlertTriangle, Terminal, Trash2 } from 'lucide-react'
 import { generatePreviewHTML } from '../utils/previewTemplate.js'
+
 export default function PreviewPanel({ code, isLoading }) {
-  const iframeRef          = useRef(null)
-  const consoleEndRef      = useRef(null)
-  const [key, setKey]      = useState(0)
+  const consoleEndRef     = useRef(null)
+  const [key, setKey]     = useState(0)
   const [hasError, setHasError]       = useState(false)
   const [showConsole, setShowConsole] = useState(false)
   const [consoleLogs, setConsoleLogs] = useState([])
-  const debounceRef        = useRef(null)
+
+  // The HTML string that the iframe renders.
+  // Only update it when streaming has finished (isLoading=false).
+  // This way React controls the srcDoc prop — no ref/DOM manipulation needed.
+  const [previewHTML, setPreviewHTML] = useState(() => generatePreviewHTML(code))
+
+  useEffect(() => {
+    if (isLoading) return          // don't touch the iframe while streaming
+    setHasError(false)
+    setPreviewHTML(generatePreviewHTML(code))
+  }, [code, isLoading])
 
   // Listen for console messages from the preview iframe
   useEffect(() => {
@@ -31,39 +41,17 @@ export default function PreviewPanel({ code, isLoading }) {
     if (showConsole) consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [consoleLogs, showConsole])
 
-  // Clear logs when code changes
+  // Clear logs when new code arrives
   useEffect(() => {
     setConsoleLogs([])
   }, [code])
 
-  // Core preview update function — only touches the DOM, never causes React re-render
-  const loadPreview = useCallback((currentCode) => {
-    if (!iframeRef.current) return
-    setHasError(false)
-    iframeRef.current.srcdoc = generatePreviewHTML(currentCode)
-  }, [])
-
-  // During streaming: debounce so the iframe isn't reloaded every token.
-  // When streaming ends (isLoading flips false): load immediately.
-  useEffect(() => {
-    clearTimeout(debounceRef.current)
-    if (isLoading) {
-      // While streaming, delay the update — only refresh after 800ms of silence
-      debounceRef.current = setTimeout(() => loadPreview(code), 800)
-    } else {
-      // Streaming just finished OR user edited code — load right now
-      loadPreview(code)
-    }
-    return () => clearTimeout(debounceRef.current)
-  }, [code, isLoading, loadPreview])
   const errorCount = consoleLogs.filter(l => l.level === 'error').length
 
   const handleRefresh = useCallback(() => {
     setKey(k => k + 1)
     setHasError(false)
-    // After key-triggered remount, set srcdoc on the new iframe element
-    setTimeout(() => loadPreview(code), 50)
-  }, [code, loadPreview])
+  }, [])
 
   const handleOpenInTab = useCallback(() => {
     const html = generatePreviewHTML(code)
@@ -157,10 +145,10 @@ export default function PreviewPanel({ code, isLoading }) {
         <div className="absolute inset-0">
           <iframe
             key={key}
-            ref={iframeRef}
             title="App Preview"
             sandbox="allow-scripts allow-same-origin"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+            srcDoc={previewHTML}
             onError={() => setHasError(true)}
           />
         </div>
