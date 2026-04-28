@@ -3,28 +3,39 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { RefreshCw, Maximize2, AlertTriangle, Terminal, Trash2 } from 'lucide-react'
 import { generatePreviewHTML } from '../utils/previewTemplate.js'
 
-export default function PreviewPanel({ code, isLoading }) {
+export default function PreviewPanel({ code, isLoading, isModifying }) {
+  const iframeRef         = useRef(null)
+  const codeRef           = useRef(code)   // always-fresh ref for use in stale closures
   const consoleEndRef     = useRef(null)
   const [key, setKey]     = useState(0)
   const [hasError, setHasError]       = useState(false)
   const [showConsole, setShowConsole] = useState(false)
   const [consoleLogs, setConsoleLogs] = useState([])
 
-  // The HTML string that the iframe renders.
-  // Only update it when streaming has finished (isLoading=false).
-  // This way React controls the srcDoc prop — no ref/DOM manipulation needed.
-  const [previewHTML, setPreviewHTML] = useState(() => generatePreviewHTML(code))
+  // Keep codeRef in sync with prop
+  useEffect(() => { codeRef.current = code }, [code])
 
+  // Send code to the iframe via postMessage whenever generation/modification finishes.
+  // The iframe (preview.html) is persistent — CDN scripts load once and stay cached.
   useEffect(() => {
-    if (isLoading) return          // don't touch the iframe while streaming
-    setHasError(false)
-    setPreviewHTML(generatePreviewHTML(code))
-  }, [code, isLoading])
+    if (isLoading || isModifying) return
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'PREVIEW_CODE', code: code || '' }, '*'
+    )
+  }, [code, isLoading, isModifying])
 
-  // Listen for console messages from the preview iframe
+  // Listen for messages from the preview iframe
   useEffect(() => {
     const handler = (e) => {
-      if (e.data?.type !== '__console') return
+      if (!e.data) return
+      // Iframe (re)loaded and is ready — resend current code
+      if (e.data.type === 'PREVIEW_READY') {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: 'PREVIEW_CODE', code: codeRef.current || '' }, '*'
+        )
+        return
+      }
+      if (e.data.type !== '__console') return
       setConsoleLogs(prev => [...prev.slice(-199), {
         level: e.data.level,
         args:  e.data.args,
@@ -145,10 +156,11 @@ export default function PreviewPanel({ code, isLoading }) {
         <div className="absolute inset-0">
           <iframe
             key={key}
+            ref={iframeRef}
             title="App Preview"
+            src="/preview.html"
             sandbox="allow-scripts allow-same-origin"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-            srcDoc={previewHTML}
             onError={() => setHasError(true)}
           />
         </div>

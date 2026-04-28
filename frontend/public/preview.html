@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Preview</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+
+  <!-- React 18 (dev build surfaces errors properly) -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.development.js"></script>
+  <!-- Babel standalone (JSX transpiler) -->
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.10/babel.min.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #root { height: 100%; }
+    body {
+      background: #070711;
+      color: #f0f0ff;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* Error overlay */
+    #__error-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: #0f172a; color: #f8fafc;
+      padding: 28px 32px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 12px; z-index: 99999; overflow: auto;
+    }
+    #__error-overlay.show { display: block; }
+    #__error-overlay h2  { color: #ef4444; margin: 0 0 12px; font-size: 16px; font-family: Inter, sans-serif; }
+    #__error-overlay pre { background: #1e293b; padding: 16px; border-radius: 10px; overflow: auto; line-height: 1.6; white-space: pre-wrap; }
+    #__error-overlay p   { color: #64748b; margin-top: 14px; font-family: Inter, sans-serif; font-size: 11px; }
+
+    /* Empty state */
+    #__empty-state {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: system-ui, sans-serif; color: #64748b;
+      background: #0a0a0f;
+    }
+    .empty-wrap { text-align: center; }
+    .empty-icon { font-size: 44px; margin-bottom: 14px; opacity: .7; }
+    .empty-wrap p { font-size: 13px; line-height: 1.6; }
+    .empty-wrap span { color: #818cf8; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div id="__error-overlay">
+    <h2>&#x26A0;&#xFE0F;  Preview Error</h2>
+    <pre id="__error-msg"></pre>
+    <p>Fix the error in the code editor &#x2014; the preview updates automatically.</p>
+  </div>
+
+  <div id="__empty-state">
+    <div class="empty-wrap">
+      <div class="empty-icon">&#x26A1;</div>
+      <p>Enter a prompt and click <span>Generate App</span><br/>to see your app previewed here.</p>
+    </div>
+  </div>
+
+  <div id="root"></div>
+
+  <script>
+    // ── Error handling ─────────────────────────────────────────────────────────
+    window.__showError = function (msg) {
+      var el  = document.getElementById('__error-overlay');
+      var pre = document.getElementById('__error-msg');
+      if (el && pre) { pre.textContent = String(msg); el.classList.add('show'); }
+      try {
+        window.parent.postMessage({ type: '__console', level: 'error', args: [String(msg)], ts: Date.now() }, '*');
+      } catch (e) {}
+    };
+    window.__clearError = function () {
+      var el = document.getElementById('__error-overlay');
+      if (el) el.classList.remove('show');
+    };
+    window.onerror = function (msg, src, line, col, err) {
+      var detail = err && err.stack ? err.stack : (msg + (src ? ' \u2014 ' + src + ':' + line : ''));
+      if (!detail || detail === 'Script error.' || detail === 'Script error') {
+        detail = 'Script error (cross-origin).\nOpen the Console panel for more detail.';
+      }
+      window.__showError(detail);
+      return true;
+    };
+    window.addEventListener('unhandledrejection', function (e) {
+      window.__showError(e.reason ? String(e.reason) : 'Unhandled promise rejection');
+    });
+
+    // ── Console bridge ─────────────────────────────────────────────────────────
+    (function () {
+      var _post = function (level, args) {
+        try {
+          window.parent.postMessage({
+            type:  '__console',
+            level: level,
+            args:  Array.prototype.slice.call(args).map(function (a) {
+              try { return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a); }
+              catch (e) { return String(a); }
+            }),
+            ts: Date.now(),
+          }, '*');
+        } catch (e) {}
+      };
+      var _o = {
+        log:   console.log.bind(console),
+        warn:  console.warn.bind(console),
+        error: console.error.bind(console),
+        info:  console.info.bind(console),
+      };
+      console.log   = function () { _o.log.apply(console, arguments);   _post('log',   arguments); };
+      console.warn  = function () { _o.warn.apply(console, arguments);  _post('warn',  arguments); };
+      console.error = function () { _o.error.apply(console, arguments); _post('error', arguments); };
+      console.info  = function () { _o.info.apply(console, arguments);  _post('info',  arguments); };
+    })();
+
+    // ── Renderer ───────────────────────────────────────────────────────────────
+    var __pendingCode = null;
+    var __loaded      = false;
+
+    function __stripFences(raw) {
+      var t = raw.trim();
+      var m = t.match(/^```[\w]*\s*\n([\s\S]*?)```\s*$/);
+      if (m) return m[1].trim();
+      return t.replace(/^```[\w]*\s*\n/, '').replace(/\n```[\s]*$/, '').trim();
+    }
+
+    function __renderCode(code) {
+      window.__clearError();
+
+      var emptyEl = document.getElementById('__empty-state');
+      if (!code || !code.trim()) {
+        if (emptyEl) emptyEl.style.display = 'flex';
+        return;
+      }
+      if (emptyEl) emptyEl.style.display = 'none';
+
+      var cleaned = __stripFences(code);
+
+      // Transpile JSX → JS
+      var transpiled;
+      try {
+        transpiled = Babel.transform(cleaned, { presets: ['react'], filename: 'app.jsx' }).code;
+      } catch (te) {
+        window.__showError('Transpilation Error:\n' + (te.message || String(te)));
+        return;
+      }
+
+      // Unmount previous React root
+      try {
+        if (window.__reactRoot) { window.__reactRoot.unmount(); window.__reactRoot = null; }
+      } catch (e) {}
+      var rootEl = document.getElementById('root');
+      if (rootEl) rootEl.innerHTML = '';
+
+      // Preamble: destructure React hooks + ErrorBoundary class
+      var preamble =
+        'const {useState,useEffect,useCallback,useMemo,useRef,useReducer,useContext,' +
+        'createContext,Fragment,forwardRef,memo,useId,useTransition,useDeferredValue}=React;\n' +
+        'class __ErrorBoundary extends React.Component{\n' +
+        '  constructor(p){super(p);this.state={error:null};}\n' +
+        '  static getDerivedStateFromError(e){return{error:e};}\n' +
+        '  componentDidCatch(e,i){\n' +
+        '    window.__showError((e&&e.stack?e.stack:String(e))+(i&&i.componentStack?"\\n\\nComponent stack:"+i.componentStack:""));\n' +
+        '  }\n' +
+        '  render(){if(this.state.error)return null;return this.props.children;}\n' +
+        '}';
+
+      var mount =
+        'var __el=document.getElementById("root");\n' +
+        'window.__reactRoot=ReactDOM.createRoot(__el,{' +
+        '  onRecoverableError:function(e){window.__showError(e&&e.stack?e.stack:String(e));}\n' +
+        '});\n' +
+        'window.__reactRoot.render(React.createElement(__ErrorBoundary,null,React.createElement(App)));';
+
+      try {
+        new Function(preamble + '\n' + transpiled + '\n' + mount)();
+      } catch (re) {
+        window.__showError(re.stack || re.message || String(re));
+      }
+    }
+
+    // ── Message handler ────────────────────────────────────────────────────────
+    window.addEventListener('message', function (e) {
+      if (!e.data) return;
+      if (e.data.type === 'PREVIEW_CODE') {
+        if (__loaded) {
+          __renderCode(e.data.code);
+        } else {
+          // Store latest — if multiple arrive before load, keep the most recent
+          __pendingCode = e.data.code;
+        }
+      }
+    });
+
+    // ── Window load ────────────────────────────────────────────────────────────
+    window.addEventListener('load', function () {
+      if (typeof React === 'undefined') {
+        window.__showError('React CDN failed to load. Check your internet connection and refresh.');
+        return;
+      }
+      if (typeof Babel === 'undefined') {
+        window.__showError('Babel CDN failed to load. Check your internet connection and refresh.');
+        return;
+      }
+
+      __loaded = true;
+
+      // Render any code that arrived before CDN finished loading
+      if (__pendingCode !== null) {
+        __renderCode(__pendingCode);
+        __pendingCode = null;
+      }
+
+      // Signal parent that we are ready (triggers resend of current code if needed)
+      try { window.parent.postMessage({ type: 'PREVIEW_READY' }, '*'); } catch (e) {}
+    });
+  </script>
+</body>
+</html>

@@ -291,7 +291,7 @@ export default function App() {
                   transition={{ duration: 0.2 }}
                   className="h-full"
                 >
-                  <PreviewPanel code={code} isLoading={isLoading} />
+                  <PreviewPanel code={code} isLoading={isLoading} isModifying={isModifying} />
                 </motion.div>
               )}
 
@@ -321,7 +321,7 @@ export default function App() {
                     <CodeEditor code={code} onChange={setCode} isLoading={isLoading} />
                   </div>
                   <div className="w-1/2">
-                    <PreviewPanel code={code} isLoading={isLoading} />
+                    <PreviewPanel code={code} isLoading={isLoading} isModifying={isModifying} />
                   </div>
                 </motion.div>
               )}
