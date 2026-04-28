@@ -26,8 +26,8 @@ export function generatePreviewHTML(code) {
 
   const cleanedCode = stripMarkdownFences(code)
 
-  // Escape </script> occurrences to prevent breaking the template
-  const safeCode = cleanedCode.replace(/<\/script>/gi, '<\\/script>')
+  // JSON-encode the code — handles all escaping; additionally escape </script> for HTML safety
+  const safeCodeJSON = JSON.stringify(cleanedCode).replace(/<\/script>/gi, '<\\/'+'script>')
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -155,44 +155,40 @@ export function generatePreviewHTML(code) {
     })();
   <\/script>
 
-  <!-- User-generated component code — only "react" preset, no "env" (avoids core-js require() issues) -->
-  <script type="text/babel" data-presets="react">
-    const {
-      useState, useEffect, useCallback, useMemo, useRef,
-      useReducer, useContext, createContext, Fragment,
-      forwardRef, memo, useId, useTransition, useDeferredValue
-    } = React;
-
-    // Error boundary — catches per-component render errors and shows them inline
-    class __ErrorBoundary extends React.Component {
-      constructor(props) { super(props); this.state = { error: null }; }
-      static getDerivedStateFromError(err) { return { error: err }; }
-      componentDidCatch(err, info) {
-        var msg = (err && err.stack ? err.stack : String(err)) + (info && info.componentStack ? '\n\nComponent stack:' + info.componentStack : '');
-        window.__showError(msg);
+  <!-- User-generated component code — explicit Babel.transform() is more reliable than type=text/babel in srcDoc iframes -->
+  <script>
+    (function () {
+      if (typeof Babel === 'undefined' || typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+        window.__showError('Required CDN libraries failed to load. Check your internet connection and refresh.');
+        return;
       }
-      render() {
-        if (this.state.error) return null;
-        return this.props.children;
+      var rawCode = ${safeCodeJSON};
+      var transpiled;
+      try {
+        transpiled = Babel.transform(rawCode, { presets: ['react'], filename: 'app.jsx' }).code;
+      } catch (te) {
+        window.__showError('Transpilation Error:\n' + (te.message || String(te)));
+        return;
       }
-    }
-
-    try {
-      ${safeCode}
-
-      const __rootEl = document.getElementById('root');
-      if (__rootEl) {
-        ReactDOM.createRoot(__rootEl, {
-          onRecoverableError: function(err) {
-            window.__showError(err && err.stack ? err.stack : String(err));
-          }
-        }).render(
-          React.createElement(__ErrorBoundary, null, React.createElement(App))
-        );
+      var preamble = [
+        'const {useState,useEffect,useCallback,useMemo,useRef,useReducer,useContext,createContext,Fragment,forwardRef,memo,useId,useTransition,useDeferredValue}=React;',
+        'class __ErrorBoundary extends React.Component{',
+        '  constructor(p){super(p);this.state={error:null};}',
+        '  static getDerivedStateFromError(e){return{error:e};}',
+        '  componentDidCatch(e,i){window.__showError((e&&e.stack?e.stack:String(e))+(i&&i.componentStack?"\\n\\nComponent stack:"+i.componentStack:""));}',
+        '  render(){if(this.state.error)return null;return this.props.children;}',
+        '}',
+      ].join('\n');
+      var mount = [
+        'var __el=document.getElementById("root");',
+        'if(__el){ReactDOM.createRoot(__el,{onRecoverableError:function(e){window.__showError(e&&e.stack?e.stack:String(e));}}).render(React.createElement(__ErrorBoundary,null,React.createElement(App)));}',
+      ].join('\n');
+      try {
+        new Function(preamble + '\n' + transpiled + '\n' + mount)();
+      } catch (re) {
+        window.__showError(re.stack || re.message || String(re));
       }
-    } catch (__err) {
-      window.__showError(__err.stack || __err.message || String(__err));
-    }
+    })();
   <\/script>
 </body>
 </html>`
