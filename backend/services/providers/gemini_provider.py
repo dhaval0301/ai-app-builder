@@ -24,7 +24,7 @@ class GeminiProvider(BaseProvider):
                 google_api_key=self._api_key,
                 model=self._model_name,
                 temperature=0.7,
-                max_output_tokens=4096,
+                max_output_tokens=16000,
                 streaming=True,
             ).with_retry(stop_after_attempt=2)
 

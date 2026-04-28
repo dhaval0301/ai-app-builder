@@ -83,7 +83,56 @@ def clear_session(session_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _sse(data: dict) -> str:
+def _patch_truncated_code(code: str) -> str:
+    """
+    If the LLM output was truncated mid-generation (hit token limit),
+    the last line may have an unclosed string, JSX tag, or brace.
+    This patcher:
+      1. Drops the last line if it looks incomplete (no closing punctuation).
+      2. Counts unbalanced braces/parens and appends the minimum closing tokens
+         needed so Babel can at least parse and render what was generated.
+    """
+    lines = code.rstrip().splitlines()
+    if not lines:
+        return code
+
+    last = lines[-1].rstrip()
+    # If the last line ends mid-string (odd number of unescaped quotes) or
+    # has no closing punctuation at all, drop it — it's garbage.
+    def _looks_incomplete(line: str) -> bool:
+        stripped = line.strip()
+        if not stripped:
+            return False
+        # Incomplete if it ends with an opening token or assignment operator
+        if stripped[-1] in ('=', '+', '-', '(', '{', '[', ',', '<', '|', '&', '?', ':'):
+            return True
+        # Count unescaped double quotes — odd means unterminated string
+        dq = stripped.count('"') - stripped.count('\\"')
+        sq = stripped.count("'") - stripped.count("\\'")
+        bt = stripped.count('`') - stripped.count('\\`')
+        if dq % 2 != 0 or sq % 2 != 0 or bt % 2 != 0:
+            return True
+        return False
+
+    if _looks_incomplete(last):
+        lines = lines[:-1]
+
+    patched = '\n'.join(lines)
+
+    # Balance braces and parens
+    opens  = patched.count('{') - patched.count('}')
+    parens = patched.count('(') - patched.count(')')
+
+    closing = ''
+    if parens > 0:
+        closing += ')' * parens
+    if opens > 0:
+        closing += '\n' + '}'.join([''] * (opens + 1))  # opens closing braces
+
+    return patched + closing if closing else patched
+
+
+
     return f"data: {json.dumps(data)}\n\n"
 
 
@@ -143,6 +192,12 @@ async def generate_stream(
 
             if not full_code.strip():
                 raise ValueError("Provider returned empty response")
+
+            # Guard against truncated output (LLM hit token limit mid-line).
+            # If the code doesn't end with a closing brace/paren after trimming
+            # any trailing whitespace, it was cut off — patch it closed so the
+            # frontend can at least transpile and show what was generated.
+            full_code = _patch_truncated_code(full_code)
 
             # Persist conversation turn for modify / generate sessions
             if session_id and mode in ("generate", "modify"):
