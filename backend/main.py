@@ -27,6 +27,8 @@ _DEFAULT_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
+    "https://aibuilder.dhaval-ingale.tech",
+    "https://ai-app-builder-58vn1qj29-dhaval0301s-projects.vercel.app",
 ]
 
 # ALLOWED_ORIGINS env var is a comma-separated list of extra origins
