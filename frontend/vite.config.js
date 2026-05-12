@@ -12,4 +12,8 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // force Vercel to do a clean rebuild so VITE_API_URL is baked in
+    rollupOptions: {},
+  },
 })
