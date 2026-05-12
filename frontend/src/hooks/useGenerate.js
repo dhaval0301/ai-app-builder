@@ -8,9 +8,10 @@
  *   onError(message)
  */
 
-// In production (Vercel) the vercel.json rewrite proxies /api → Railway backend.
-// In development the Vite proxy handles it. Either way the base is just '/api'.
-const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '') + '/api'
+// In development, Vite proxy routes /api → localhost:8000.
+// In production, call Railway directly to avoid Vercel proxy buffering SSE streams.
+const _RAILWAY = 'https://ai-app-builder-production-315f.up.railway.app'
+const API_BASE = (import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? _RAILWAY : '')).replace(/\/$/, '') + '/api'
 
 export async function generateAppStream(
   prompt,
